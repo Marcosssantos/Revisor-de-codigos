@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="pt-BR">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Revisor de Código</title>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+        body {
+            box-sizing: border-box;
+        }
+        
+        .code-editor {
+            font-family: 'Courier New', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border: none;
+            outline: none;
+            resize: none;
+            line-height: 1.5;
+        }
+        
+        .code-editor::placeholder {
+            color: #6a6a6a;
+        }
+        
+        .analysis-section {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .suggestion-item {
+            background: #fef3c7;
+            border-left: 3px solid #f59e0b;
+            transition: all 0.2s ease;
+        }
+        
+        .suggestion-item:hover {
+            background: #fde68a;
+            transform: translateX(2px);
+        }
+        
+        .error-item {
+            background: #fee2e2;
+            border-left: 3px solid #ef4444;
+        }
+        
+        .success-item {
+            background: #dcfce7;
+            border-left: 3px solid #22c55e;
+        }
+    </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="min-h-full bg-gradient-to-br from-blue-50 to-indigo-100">
+  <main class="container mx-auto px-4 py-8 max-w-6xl"><!-- Header -->
+   <header class="text-center mb-8">
+    <h1 id="main-title" class="text-4xl font-bold text-gray-800 mb-2">Revisor de Código</h1>
+    <p id="subtitle" class="text-lg text-gray-600">Cole seu código aqui para receber análise e sugestões de melhoria</p>
+   </header>
+   <div class="grid lg:grid-cols-2 gap-8"><!-- Code Input Section -->
+    <section class="bg-white rounded-xl shadow-lg p-6">
+     <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-semibold text-gray-800">Seu Código</h2>
+      <div class="flex gap-2"><button id="clear-btn" class="px-3 py-1 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-md transition-colors"> Limpar </button> <button id="analyze-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors"> Analisar Código </button>
+      </div>
+     </div><textarea id="code-input" class="code-editor w-full h-96 p-4 rounded-lg" placeholder="// Cole seu código aqui...
+// Suporto JavaScript, HTML, CSS, Python, e outras linguagens
+// Exemplo:
+function exemploFuncao() {
+    console.log('Olá mundo!');
+    return true;
+}"></textarea>
+     <div class="mt-4 text-sm text-gray-500">
+      <p>💡 Dica: Cole qualquer código e clique em "Analisar" para receber feedback detalhado</p>
+     </div>
+    </section><!-- Analysis Results Section -->
+    <section class="bg-white rounded-xl shadow-lg p-6">
+     <h2 class="text-xl font-semibold text-gray-800 mb-4">Análise do Código</h2>
+     <div id="analysis-results" class="space-y-4">
+      <div class="analysis-section p-4 rounded-lg">
+       <h3 class="font-semibold text-gray-700 mb-2">📋 Aguardando código...</h3>
+       <p class="text-gray-600">Cole seu código na área ao lado e clique em "Analisar" para começar a revisão.</p>
+      </div>
+     </div>
+    </section>
+   </div><!-- Statistics Section -->
+   <section id="stats-section" class="mt-8 bg-white rounded-xl shadow-lg p-6" style="display: none;">
+    <h2 class="text-xl font-semibold text-gray-800 mb-4">📊 Estatísticas do Código</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+     <div class="text-center p-3 bg-blue-50 rounded-lg">
+      <div id="lines-count" class="text-2xl font-bold text-blue-600">
+       0
+      </div>
+      <div class="text-sm text-gray-600">
+       Linhas
+      </div>
+     </div>
+     <div class="text-center p-3 bg-green-50 rounded-lg">
+      <div id="chars-count" class="text-2xl font-bold text-green-600">
+       0
+      </div>
+      <div class="text-sm text-gray-600">
+       Caracteres
+      </div>
+     </div>
+     <div class="text-center p-3 bg-purple-50 rounded-lg">
+      <div id="words-count" class="text-2xl font-bold text-purple-600">
+       0
+      </div>
+      <div class="text-sm text-gray-600">
+       Palavras
+      </div>
+     </div>
+     <div class="text-center p-3 bg-orange-50 rounded-lg">
+      <div id="language-detected" class="text-2xl font-bold text-orange-600">
+       -
+      </div>
+      <div class="text-sm text-gray-600">
+       Linguagem
+      </div>
+     </div>
+    </div>
+   </section>
+  </main>
+  <script>
+        // Configuration
+        const defaultConfig = {
+            header_title: "Revisor de Código",
+            placeholder_text: "Cole seu código aqui para receber análise e sugestões de melhoria"
+        };
+
+        // Elements
+        const codeInput = document.getElementById('code-input');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const analysisResults = document.getElementById('analysis-results');
+        const statsSection = document.getElementById('stats-section');
+
+        // Event Listeners
+        analyzeBtn.addEventListener('click', analyzeCode);
+        clearBtn.addEventListener('click', clearCode);
+        codeInput.addEventListener('input', updateStats);
+
+        function analyzeCode() {
+            const code = codeInput.value.trim();
+            
+            if (!code) {
+                showAnalysis([{
+                    type: 'info',
+                    title: '⚠️ Código vazio',
+                    message: 'Por favor, cole algum código para análise.'
+                }]);
+                return;
+            }
+
+            // Show loading state
+            analyzeBtn.textContent = 'Analisando...';
+            analyzeBtn.disabled = true;
+
+            // Simulate analysis delay
+            setTimeout(() => {
+                const analysis = performCodeAnalysis(code);
+                showAnalysis(analysis);
+                updateStats();
+                statsSection.style.display = 'block';
+                
+                analyzeBtn.textContent = 'Analisar Código';
+                analyzeBtn.disabled = false;
+            }, 1000);
+        }
+
+        function performCodeAnalysis(code) {
+            const analysis = [];
+            const lines = code.split('\n');
+            const language = detectLanguage(code);
+
+            // Basic code quality checks
+            analysis.push({
+                type: 'success',
+                title: '✅ Análise Concluída',
+                message: `Código analisado com sucesso! Linguagem detectada: ${language}`
+            });
+
+            // Check for common issues
+            if (code.includes('console.log')) {
+                analysis.push({
+                    type: 'suggestion',
+                    title: '💡 Console.log detectado',
+                    message: 'Considere remover ou substituir console.log por um sistema de logging mais robusto em produção.'
+                });
+            }
+
+            if (code.includes('var ')) {
+                analysis.push({
+                    type: 'suggestion',
+                    title: '📝 Uso de var',
+                    message: 'Considere usar "let" ou "const" ao invés de "var" para melhor escopo de variáveis.'
+                });
+            }
+
+            if (lines.some(line => line.length > 120)) {
+                analysis.push({
+                    type: 'suggestion',
+                    title: '📏 Linhas muito longas',
+                    message: 'Algumas linhas têm mais de 120 caracteres. Considere quebrar em linhas menores para melhor legibilidade.'
+                });
+            }
+
+            if (!code.includes('//') && !code.includes('/*')) {
+                analysis.push({
+                    type: 'suggestion',
+                    title: '📖 Falta de comentários',
+                    message: 'Adicionar comentários pode ajudar outros desenvolvedores (e você mesmo) a entender o código melhor.'
+                });
+            }
+
+            // Check for good practices
+            if (code.includes('function') || code.includes('=>')) {
+                analysis.push({
+                    type: 'success',
+                    title: '🎯 Boas práticas',
+                    message: 'Ótimo uso de funções! Isso torna o código mais modular e reutilizável.'
+                });
+            }
+
+            if (code.includes('const ') || code.includes('let ')) {
+                analysis.push({
+                    type: 'success',
+                    title: '✨ Declarações modernas',
+                    message: 'Excelente uso de const/let! Isso demonstra boas práticas de JavaScript moderno.'
+                });
+            }
+
+            return analysis;
+        }
+
+        function detectLanguage(code) {
+            if (code.includes('function') || code.includes('const') || code.includes('let')) return 'JavaScript';
+            if (code.includes('<html>') || code.includes('<div>')) return 'HTML';
+            if (code.includes('def ') || code.includes('import ')) return 'Python';
+            if (code.includes('#include') || code.includes('int main')) return 'C/C++';
+            if (code.includes('public class') || code.includes('System.out')) return 'Java';
+            if (code.includes('<?php')) return 'PHP';
+            return 'Texto/Outro';
+        }
+
+        function showAnalysis(analysisItems) {
+            analysisResults.innerHTML = '';
+            
+            analysisItems.forEach(item => {
+                const div = document.createElement('div');
+                div.className = `${item.type}-item p-4 rounded-lg mb-3`;
+                div.innerHTML = `
+                    <h3 class="font-semibold text-gray-700 mb-2">${item.title}</h3>
+                    <p class="text-gray-600">${item.message}</p>
+                `;
+                analysisResults.appendChild(div);
+            });
+        }
+
+        function clearCode() {
+            codeInput.value = '';
+            analysisResults.innerHTML = `
+                <div class="analysis-section p-4 rounded-lg">
+                    <h3 class="font-semibold text-gray-700 mb-2">📋 Aguardando código...</h3>
+                    <p class="text-gray-600">Cole seu código na área ao lado e clique em "Analisar" para começar a revisão.</p>
+                </div>
+            `;
+            statsSection.style.display = 'none';
+        }
+
+        function updateStats() {
+            const code = codeInput.value;
+            const lines = code.split('\n').length;
+            const chars = code.length;
+            const words = code.trim() ? code.trim().split(/\s+/).length : 0;
+            const language = detectLanguage(code);
+
+            document.getElementById('lines-count').textContent = lines;
+            document.getElementById('chars-count').textContent = chars;
+            document.getElementById('words-count').textContent = words;
+            document.getElementById('language-detected').textContent = language;
+        }
+
+        // Element SDK Integration
+        async function onConfigChange(config) {
+            const title = config.header_title || defaultConfig.header_title;
+            const subtitle = config.placeholder_text || defaultConfig.placeholder_text;
+            
+            document.getElementById('main-title').textContent = title;
+            document.getElementById('subtitle').textContent = subtitle;
+        }
+
+        function mapToCapabilities(config) {
+            return {
+                recolorables: [
+                    {
+                        get: () => config.primary_color || "#3b82f6",
+                        set: (value) => {
+                            config.primary_color = value;
+                            window.elementSdk.setConfig({ primary_color: value });
+                        }
+                    }
+                ],
+                borderables: [],
+                fontEditable: undefined,
+                fontSizeable: undefined
+            };
+        }
+
+        function mapToEditPanelValues(config) {
+            return new Map([
+                ["header_title", config.header_title || defaultConfig.header_title],
+                ["placeholder_text", config.placeholder_text || defaultConfig.placeholder_text]
+            ]);
+        }
+
+        // Initialize Element SDK
+        if (window.elementSdk) {
+            window.elementSdk.init({
+                defaultConfig,
+                onConfigChange,
+                mapToCapabilities,
+                mapToEditPanelValues
+            });
+        }
+    </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99672523b406f1ce',t:'MTc2MTc4NzgwMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
